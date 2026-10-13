@@ -1,0 +1,10 @@
+node_modules
+dist
+.test-build
+.scan-work*
+.git
+.env
+.claude
+.vscode
+test
+*.md

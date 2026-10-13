@@ -147,3 +147,9 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# compiled tests
+.test-build/
+
+# scan working files (clones and Trivy reports)
+.scan-work/

@@ -1,0 +1,47 @@
+{
+  "name": "code-guardian-service",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/Shnyrkevich/code-guardian-service#readme",
+  "bugs": {
+    "url": "https://github.com/Shnyrkevich/code-guardian-service/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shnyrkevich/code-guardian-service.git"
+  },
+  "license": "MIT",
+  "author": "Shnyrkevich",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:oom": "node --max-old-space-size=150 dist/index.js",
+    "dev": "tsc --watch",
+    "test": "tsc -p tsconfig.test.json && node --test \".test-build/test/unit/*.test.js\"",
+    "test:e2e": "tsc && tsc -p tsconfig.test.json && node --test .test-build/test/e2e/scan.e2e.js",
+    "gen:report": "tsc -p tsconfig.test.json && node .test-build/test/tools/gen-big-report.js",
+    "oom:check": "tsc -p tsconfig.test.json && node --max-old-space-size=150 .test-build/test/tools/oom-check.js",
+    "web:install": "npm --prefix web install",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "bullmq": "^6.3.14",
+    "express": "^5.3.0",
+    "graphql": "^17.0.2",
+    "graphql-http": "^1.23.1",
+    "ioredis": "^6.0.0",
+    "stream-json": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "@types/stream-json": "^1.7.8",
+    "typescript": "^7.0.2"
+  }
+}

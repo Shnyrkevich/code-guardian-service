@@ -1,0 +1,81 @@
+# Everything needed to run the service: the web page (nginx), the app (200 MB memory limit),
+# Redis (BullMQ jobs + scan state) and a one-shot Trivy DB warm-up.
+#   docker compose up -d --build      then open http://localhost:8080
+# To run only the infrastructure and start the app on the host instead:
+#   docker compose up -d redis trivy-init  &&  npm run build  &&  node --env-file=.env dist/index.js
+services:
+  app:
+    build: .
+    container_name: code-guardian-app
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    mem_limit: 200m
+    memswap_limit: 200m # no swap: hitting the limit must be visible, not hidden by swapping
+    depends_on:
+      redis:
+        condition: service_healthy
+      trivy-init:
+        condition: service_completed_successfully
+    environment:
+      REDIS_URL: ${APP_REDIS_URL:-redis://redis:6379}
+      SCAN_WORK_DIR: ${SCAN_HOST_DIR:-/tmp/code-guardian}
+      TRIVY_CACHE_VOLUME: trivy-cache
+      WORKER_CONCURRENCY: 4
+      CLONE_CONCURRENCY: 1
+    volumes:
+      # The app starts Trivy with `docker run`, and the Docker daemon resolves mount paths on the HOST.
+      # So the scan folder is mounted at the same path inside the container as on the host.
+      - ${SCAN_HOST_DIR:-/tmp/code-guardian}:${SCAN_HOST_DIR:-/tmp/code-guardian}
+      # SECURITY: the Docker socket gives the app control of the host's Docker daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: code-guardian-web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: code-guardian-redis
+    ports:
+      - "6379:6379"
+    # AOF keeps queued jobs across Redis restarts; BullMQ requires noeviction so jobs are never dropped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "256mb",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Downloads the vulnerability DB into the shared cache volume, then exits.
+  # Scans started by the app reuse that volume (TRIVY_CACHE_VOLUME), so the first scan is not slow
+  # and does not depend on the DB download succeeding mid-request.
+  trivy-init:
+    image: aquasec/trivy:latest
+    command: ["image", "--download-db-only", "--no-progress"]
+    volumes:
+      - trivy-cache:/root/.cache/
+    restart: "no"
+
+volumes:
+  redis-data:
+  # fixed name: the app starts Trivy with `docker run -v trivy-cache:...`, which must hit this same volume
+  trivy-cache:
+    name: trivy-cache
